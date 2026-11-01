@@ -1,0 +1,11 @@
+build/
+dist/
+.local/
+__pycache__/
+*.pyc
+*.jks
+*.keystore
+*.apk
+*.idsig
+.env
+.env.*
