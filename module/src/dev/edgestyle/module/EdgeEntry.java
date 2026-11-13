@@ -88,14 +88,6 @@ public final class EdgeEntry extends XposedModule {
             if(nativeBindings==null)nativeBindings=new NativeBindings(apks.toArray(new String[0]),loader);
             Class<?> ntpPage=Class.forName("org.chromium.chrome.browser.edge_ntp.v2.NewTabPageV2Layout",false,loader);
             for(Executable executable:nativeBindings.deoptimize)deoptimize(executable);
-            installed.add(hook(nativeBindings.method("createTab")).intercept(chain->{
-                if(config.enabled&&!nativeBindings.field("creatorIncognito").getBoolean(chain.getThisObject())){
-                    Object params=chain.getArg(0);Field urlField=nativeBindings.field("loadUrlSpec");
-                    android.net.Uri url=android.net.Uri.parse((String)urlField.get(params));
-                    if("newtab".equals(url.getHost())&&("edge".equals(url.getScheme())||"chrome".equals(url.getScheme())||"chrome-native".equals(url.getScheme())))urlField.set(params,"about:blank");
-                }
-                return chain.proceed();
-            }));
             Method assemble=nativeBindings.method("assemble");
             installed.add(hook(assemble).intercept(chain->{
                 if(!config.enabled)return chain.proceed();
@@ -187,10 +179,6 @@ public final class EdgeEntry extends XposedModule {
             }));
             installed.add(hook(phone.getDeclaredMethod("onMeasure",int.class,int.class)).intercept(chain->{
                 NativeBar bar=bars.get(chain.getThisObject());if(config.enabled&&bar!=null)bar.nativeStateChanged();
-                return chain.proceed();
-            }));
-            installed.add(hook(nativeBindings.method("drawAddressBackground")).intercept(chain->{
-                if(config.enabled)for(NativeBar bar:bars.values())if(bar.ready()&&nativeBindings.field("addressBackgroundDrawable").get(bar.toolbar)==chain.getThisObject()&&bar.nativeToolbar.regularNewTabPage()&&!EdgeAccess.find(bar.toolbar,"url_bar").hasFocus())return null;
                 return chain.proceed();
             }));
             for(Class<?> pageSlot:new Class<?>[]{search,topBar})installed.add(hook(pageSlot.getDeclaredMethod("onAttachedToWindow")).intercept(chain->{

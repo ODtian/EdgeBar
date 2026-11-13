@@ -59,10 +59,6 @@ final class NativeRoles {
         methods.put("menuPalette",menu.method("menu palette",m->m.shape("V",0)&&m.calls().stream().anyMatch(c->c.owner.equals("Lorg/chromium/ui/modelutil/PropertyModel;")&&c.result.equals("V")&&c.params.size()==2&&c.params.get(1).equals("Z"))));
 
         Type toolbar=dex.type(TOOLBAR);
-        Type phone=dex.type("Lorg/chromium/chrome/browser/toolbar/top/ToolbarPhone;");
-        MethodRef drawAddress=phone.method("native address drawing",m->m.signature("(Landroid/graphics/Canvas;J)Z"));
-        MethodRef drawBackground=NativeDex.one(drawAddress.calls(),m->m.name.equals("draw")&&m.signature("(Landroid/graphics/Canvas;)V")&&!m.owner.startsWith("Landroid/"),"native address background drawing");
-        methods.put("drawAddressBackground",dex.definition(drawBackground));fields.put("addressBackgroundDrawable",phone.field(drawBackground.owner));deoptimize.add(drawAddress);
         String gurl="Lorg/chromium/url/GURL;";
         fields.put("toolbarDataProvider",NativeDex.one(dex.type(TOOLBAR_LAYOUT).fields,field->{
             Type provider=dex.type(field.type);
@@ -73,12 +69,6 @@ final class NativeRoles {
         fields.put("addressTab",addressModel.field(TAB));
         MethodRef tabUrl=dex.type("Lorg/chromium/chrome/browser/tab/TabImpl;").method("tab URL",m->m.name.equals("getUrl")&&m.shape(gurl,0));
         methods.put("webVisibleUrl",dex.definition(NativeDex.one(tabUrl.calls(),m->m.owner.equals("Lorg/chromium/content_public/browser/WebContents;")&&m.shape(gurl,0),"pending navigation URL")));
-        String loadParams="Lorg/chromium/content_public/browser/LoadUrlParams;";
-        Type creator=dex.findType("browser tab creator",t->t.hasField("Landroid/app/Activity;")&&t.hasField("Lorg/chromium/ui/base/WindowAndroid;")&&t.methods.stream().anyMatch(m->m.signature("("+loadParams+"Ljava/lang/String;I"+TAB+"ILandroid/content/Intent;Z)"+TAB)));
-        MethodRef createTab=creator.method("browser tab creation",m->m.signature("("+loadParams+"Ljava/lang/String;I"+TAB+"ILandroid/content/Intent;Z)"+TAB));
-        methods.put("createTab",createTab);fields.put("creatorIncognito",creator.field("Z"));
-        fields.put("loadUrlSpec",(FieldRef)NativeDex.one(tabUrl.uses(),u->u.op==0x54&&u.value instanceof FieldRef&&((FieldRef)u.value).owner.equals(loadParams)&&((FieldRef)u.value).type.equals("Ljava/lang/String;"),"navigation URL field").value);
-        for(Type type:dex.types.values())if(dex.extendsType(type.name,creator.name))for(MethodRef method:type.methods)if(method.calls(createTab))deoptimize.add(method);
         for(String side:new String[]{"Left","Right"}){
             MethodRef setter=toolbar.method(side+" native icon list",m->m.name.equals("set"+side+"IconCoordinators"));
             Use store=NativeDex.one(setter.uses(),u->u.op==0x5b&&u.value instanceof FieldRef&&((FieldRef)u.value).type.equals("Ljava/util/List;"),side+" icon list field");
