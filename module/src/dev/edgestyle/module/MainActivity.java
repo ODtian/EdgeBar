@@ -22,15 +22,10 @@ public final class MainActivity extends Activity {
     private final ArrayList<String> orderRoles=new ArrayList<>();private final Set<String> selectedRoles=new HashSet<>();
     @Override public void onCreate(Bundle state){super.onCreate(state);ScrollView scroll=new ScrollView(this);LinearLayout body=new LinearLayout(this);body.setOrientation(1);body.setPadding(dp(20),dp(48),dp(20),dp(24));scroll.addView(body);setContentView(scroll);
         TextView title=new TextView(this);title.setText("EdgeBar 设置");title.setTextSize(28);body.addView(title);
-        TextView subtitle=new TextView(this);subtitle.setText("网页单行地址栏 · 空标签页按钮位置 · 扩展安装");subtitle.setPadding(0,dp(8),0,dp(24));body.addView(subtitle);
+        TextView subtitle=new TextView(this);subtitle.setText("网页单行地址栏 · 空白新标签页 · 扩展安装");subtitle.setPadding(0,dp(8),0,dp(24));body.addView(subtitle);
         SharedPreferences p=ConfigBridge.prefs(this);BarConfig c=BarConfig.read(p);
         enabled=new Switch(this);enabled.setText("启用单行顶栏");enabled.setChecked(c.enabled);body.addView(enabled);
-        TextView original=new TextView(this);original.setText("网页地址栏与按钮同一行。空标签页保留原版中间地址栏，工具按钮的位置可选择。输入时地址栏展开。");original.setPadding(0,dp(16),0,dp(8));body.addView(original);
-        label(body,"空标签页工具按钮位置");
-        RadioGroup ntpPosition=new RadioGroup(this);ntpPosition.setOrientation(1);
-        RadioButton besideSearch=new RadioButton(this);besideSearch.setId(View.generateViewId());besideSearch.setText("中间地址栏旁边");ntpPosition.addView(besideSearch);
-        RadioButton atTop=new RadioButton(this);atTop.setId(View.generateViewId());atTop.setText("顶部");ntpPosition.addView(atTop);
-        ntpPosition.check("top".equals(c.ntpPosition)?atTop.getId():besideSearch.getId());body.addView(ntpPosition);
+        TextView original=new TextView(this);original.setText("新标签页采用纯色空白页面，顶部保留地址栏、标签页和菜单。输入时使用原生地址栏与建议列表。");original.setPadding(0,dp(16),0,dp(8));body.addView(original);
         label(body,"网页地址对齐");
         RadioGroup addressAlignment=new RadioGroup(this);addressAlignment.setOrientation(1);
         RadioButton alignLeft=new RadioButton(this);alignLeft.setId(View.generateViewId());alignLeft.setText("左对齐");addressAlignment.addView(alignLeft);
@@ -38,8 +33,8 @@ public final class MainActivity extends Activity {
         addressAlignment.check("center".equals(c.addressAlignment)?alignCenter.getId():alignLeft.getId());body.addView(addressAlignment);
         label(body,"按钮排列");
         orderBody=new LinearLayout(this);orderBody.setOrientation(1);body.addView(orderBody);setOrder(c.order);
-        TextView hint=new TextView(this);hint.setText("网页按此排列，菜单置于右侧。刷新 / 停止保留在地址栏内。首页显示标签页和菜单；输入时地址栏展开并显示建议列表。");hint.setTextSize(12);body.addView(hint);
-        button(body,"保存并在 Edge 应用",()->{ArrayList<String> selected=new ArrayList<>();for(String role:orderRoles)if(selectedRoles.contains(role))selected.add(role);ConfigBridge.save(this,enabled.isChecked(),String.join(",",selected),ntpPosition.getCheckedRadioButtonId()==atTop.getId()?"top":"search",addressAlignment.getCheckedRadioButtonId()==alignCenter.getId()?"center":"left");launch("apply","");});
+        TextView hint=new TextView(this);hint.setText("网页与空白新标签页按此排列，菜单位于右侧。刷新 / 停止保留在地址栏内；输入时使用原生建议列表。");hint.setTextSize(12);body.addView(hint);
+        button(body,"保存并在 Edge 应用",()->{ArrayList<String> selected=new ArrayList<>();for(String role:orderRoles)if(selectedRoles.contains(role))selected.add(role);ConfigBridge.save(this,enabled.isChecked(),String.join(",",selected),c.ntpPosition,addressAlignment.getCheckedRadioButtonId()==alignCenter.getId()?"center":"left");launch("apply","");});
         label(body,"扩展安装");
         button(body,"浏览 Chrome Web Store",()->launch("browse","https://chromewebstore.google.com/category/extensions"));
         button(body,"浏览 Edge Add-ons 桌面商店",()->launch("browse","https://microsoftedge.microsoft.com/addons/Microsoft-Edge-Extensions-Home"));
