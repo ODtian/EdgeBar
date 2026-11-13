@@ -16,6 +16,7 @@
 - 主题刷新：原生页面控件对 `ImageView.setImageTintList`、相机图标资源等的调用关系。
 - 布局资源：按原生资源字段名称读取实际 ID，包括标签按钮、菜单按钮和图标内边距资源。
 - 地址对齐：从 `LocationBarPhone` 的 `(boolean) → void` 方法对 `View.getLayoutParams`、`setPaddingRelative` 和 `setLayoutParams` 的调用定位原生约束更新入口，其零参数调用者承担地址对齐刷新。沿刷新流程及其本类布尔调用者定位 `(int) → boolean` 页面对齐分类方法；刷新及 `onMeasure` 在当前线程标记所属地址栏，分类挂钩在已适配网页的这段调用期间返回 `false`。原生流程据此统一维护对齐状态、约束和文字测量，居中选项继续由现有文字呈现挂钩处理。地址对齐刷新、布尔调用者和测量入口执行去优化。文字呈现方法按 `TextView.setGravity` 和滚动设置定位；原生文字测量入口由其对文字呈现方法的调用关系定位。相对隐藏边距从布局参数的 `resolveLayoutDirection` 读写关系及原生默认值定位。
+- 地址栏背景：从 `ToolbarPhone` 的 `(Canvas, long) → boolean` 地址绘制入口定位其自定义 `Drawable.draw(Canvas)` 调用，按 Drawable 类型取得工具栏保存的背景对象。绘制挂钩匹配对象所属的 `NativeBar`，复用 `regularNewTabPage()` 与 `UrlBar.hasFocus()`；普通新标签页的非输入态由页面搜索框承担可见搜索区域，其余状态继续原生背景绘制。普通显示与工具栏过渡截图共用此对象；原生地址绘制入口执行去优化。
 - 导航状态：按 `ToolbarLayout` 数据接口的标签与网址返回类型定位地址数据提供器，按 `LocationBarModel` 的 `Tab` 与 `GURL` 字段类型取得当前标签和已有网址；从原生 `TabImpl.getUrl` 的调用关系取得 `WebContents` 当前可见网址入口。
 - 配置生命周期：从原生 `onConfigurationChanged(Configuration)` 对图标方向更新和 `EdgeToolbarPhone.setOrientation` 的调用关系定位工具栏配置观察者，并定位这个回调采用的原生设备形态判断。
 

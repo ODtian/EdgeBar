@@ -181,6 +181,10 @@ public final class EdgeEntry extends XposedModule {
                 NativeBar bar=bars.get(chain.getThisObject());if(config.enabled&&bar!=null)bar.nativeStateChanged();
                 return chain.proceed();
             }));
+            installed.add(hook(nativeBindings.method("drawAddressBackground")).intercept(chain->{
+                if(config.enabled)for(NativeBar bar:bars.values())if(bar.ready()&&nativeBindings.field("addressBackgroundDrawable").get(bar.toolbar)==chain.getThisObject()&&bar.nativeToolbar.regularNewTabPage()&&!EdgeAccess.find(bar.toolbar,"url_bar").hasFocus())return null;
+                return chain.proceed();
+            }));
             for(Class<?> pageSlot:new Class<?>[]{search,topBar})installed.add(hook(pageSlot.getDeclaredMethod("onAttachedToWindow")).intercept(chain->{
                 Object r=chain.proceed();if(config.enabled)for(NativeBar bar:new ArrayList<>(bars.values()))if(((View)chain.getThisObject()).getRootView()==bar.toolbar.getRootView())bar.searchAttached((ViewGroup)chain.getThisObject());syncFooter();return r;
             }));

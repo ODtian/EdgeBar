@@ -59,6 +59,10 @@ final class NativeRoles {
         methods.put("menuPalette",menu.method("menu palette",m->m.shape("V",0)&&m.calls().stream().anyMatch(c->c.owner.equals("Lorg/chromium/ui/modelutil/PropertyModel;")&&c.result.equals("V")&&c.params.size()==2&&c.params.get(1).equals("Z"))));
 
         Type toolbar=dex.type(TOOLBAR);
+        Type phone=dex.type("Lorg/chromium/chrome/browser/toolbar/top/ToolbarPhone;");
+        MethodRef drawAddress=phone.method("native address drawing",m->m.signature("(Landroid/graphics/Canvas;J)Z"));
+        MethodRef drawBackground=NativeDex.one(drawAddress.calls(),m->m.name.equals("draw")&&m.signature("(Landroid/graphics/Canvas;)V")&&!m.owner.startsWith("Landroid/"),"native address background drawing");
+        methods.put("drawAddressBackground",dex.definition(drawBackground));fields.put("addressBackgroundDrawable",phone.field(drawBackground.owner));deoptimize.add(drawAddress);
         String gurl="Lorg/chromium/url/GURL;";
         fields.put("toolbarDataProvider",NativeDex.one(dex.type(TOOLBAR_LAYOUT).fields,field->{
             Type provider=dex.type(field.type);

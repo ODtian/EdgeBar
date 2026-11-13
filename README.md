@@ -25,14 +25,14 @@
 
 | 项目 | 已验证配置 |
 | --- | --- |
-| EdgeBar | 0.5.14 |
+| EdgeBar | 0.5.15 |
 | Edge | 157.0.4341.42，arm64-v8a |
 | 框架接口 | libxposed API 102 |
 | 实机 | PJF110，Android 16 |
 | 模块最低系统版本 | Android 10 / API 29 |
 | 模块包名 | `dev.edgestyle.module` |
 
-0.5.14 修复 InPrivate 起始页的标签计数与菜单按钮消失。页面分流复用 Edge 原生隐私状态，InPrivate 起始页使用顶栏按钮，普通新标签页沿用页面内的按钮位置设置。
+0.5.15 修复进入普通新标签页、从标签切换器返回时地址栏背景闪现。普通显示和过渡截图统一按当前页面与输入状态绘制地址栏背景，页面搜索框、原生输入和 InPrivate 顶栏继续沿用原有流程。
 
 ## 实机截图
 
@@ -49,6 +49,6 @@ docs/                   构建说明、调用链和实机截图
 CHANGELOG.md            版本记录
 ```
 
-开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.14.apk`。参数和签名配置见[构建方法](docs/build.md)。
+开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.15.apk`。参数和签名配置见[构建方法](docs/build.md)。
 
 第三方组件的来源和许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
