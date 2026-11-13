@@ -75,8 +75,13 @@ final class NativeRoles {
             fields.put(side.toLowerCase()+"Icons",(FieldRef)store.value);
         }
         Type location=dex.type(LOCATION);
-        MethodRef alignment=location.method("address alignment predicate",m->m.shape("Z",0)&&m.reads("Lorg/chromium/chrome/browser/omnibox/UrlBar;")&&m.calls(VIEW,"hasFocus"));methods.put("addressAlignment",alignment);
-        methods.put("addressAlignmentUpdate",location.method("address alignment update",m->m.shape("V",0)&&m.calls(alignment)));
+        MethodRef constraints=location.method("address constraints",m->m.signature("(Z)V")&&m.calls(VIEW,"getLayoutParams")&&m.calls(VIEW,"setPaddingRelative")&&m.calls(VIEW,"setLayoutParams"));methods.put("addressConstraints",constraints);
+        MethodRef alignmentUpdate=location.method("address alignment update",m->m.shape("V",0)&&m.calls(constraints));methods.put("addressAlignmentUpdate",alignmentUpdate);
+        List<MethodRef> alignmentCalls=new ArrayList<>(alignmentUpdate.calls());
+        for(MethodRef call:alignmentUpdate.calls())if(call.owner.equals(LOCATION)&&call.signature("()Z")){
+            MethodRef predicate=dex.definition(call);alignmentCalls.addAll(predicate.calls());deoptimize.add(predicate);
+        }
+        methods.put("addressPageAlignment",dex.definition(NativeDex.one(alignmentCalls,m->m.signature("(I)Z"),"address page alignment")));
         MethodRef presentation=location.method("address text presentation",m->m.shape("V",4)&&m.params.get(0).equals("Z")&&m.params.get(1).equals("Z")&&m.params.get(2).equals("I")&&m.calls("Landroid/widget/TextView;","setGravity")&&m.calls("Landroid/widget/TextView;","setHorizontallyScrolling"));
         methods.put("addressPresentation",presentation);
         MethodRef measure=location.method("native address measurement",m->m.signature("(II)V")&&m.calls(presentation));

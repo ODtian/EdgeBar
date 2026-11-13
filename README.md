@@ -25,14 +25,14 @@
 
 | 项目 | 已验证配置 |
 | --- | --- |
-| EdgeBar | 0.5.12 |
-| Edge | 156.0.4314.43，arm64-v8a |
+| EdgeBar | 0.5.13 |
+| Edge | 157.0.4341.42，arm64-v8a |
 | 框架接口 | libxposed API 102 |
 | 实机 | PJF110，Android 16 |
 | 模块最低系统版本 | Android 10 / API 29 |
 | 模块包名 | `dev.edgestyle.module` |
 
-0.5.12 修复安全图标隐藏时文字贴近圆角边缘的问题。原生约束保留 Edge 自带的 8dp 边缘留白，图标宽度继续随原生状态释放；左对齐和居中共用同一文字区域。
+0.5.13 适配 Edge 157 内联后的地址对齐流程，通过原生约束更新调用链定位页面对齐分类方法，在地址栏刷新和测量期间选择原生左侧分支。原生约束保留 Edge 自带的 8dp 边缘留白，图标宽度继续随原生状态释放；左对齐和居中共用同一文字区域。
 
 ## 实机截图
 
@@ -49,6 +49,6 @@ docs/                   构建说明、调用链和实机截图
 CHANGELOG.md            版本记录
 ```
 
-开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.12.apk`。参数和签名配置见[构建方法](docs/build.md)。
+开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.13.apk`。参数和签名配置见[构建方法](docs/build.md)。
 
 第三方组件的来源和许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

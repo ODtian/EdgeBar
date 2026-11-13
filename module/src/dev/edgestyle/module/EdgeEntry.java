@@ -25,6 +25,7 @@ public final class EdgeEntry extends XposedModule {
     private static final Map<ViewGroup,NativeBar> bars=new IdentityHashMap<>();
     private static final Map<View,NativeActions.Binding> sources=new IdentityHashMap<>();
     private static final Map<Object,View> footerOwners=new IdentityHashMap<>();
+    private static final ThreadLocal<ViewGroup> addressLayout=new ThreadLocal<>();
 
     @Override public void onModuleLoaded(ModuleLoadedParam param){
         main="com.microsoft.emmx".equals(param.getProcessName());if(!main){detach();return;}
@@ -126,12 +127,17 @@ public final class EdgeEntry extends XposedModule {
                     bar.nativeToolbar.addressStatusInset(address,bar.webLayout()&&!EdgeAccess.find(address,"url_bar").hasFocus());
                     break;
                 }
-                return chain.proceed();
+                ViewGroup previous=addressLayout.get();addressLayout.set(address);
+                try{return chain.proceed();}finally{addressLayout.set(previous);}
             }));
-            installed.add(hook(nativeBindings.method("addressAlignment")).intercept(chain->{
-                boolean original=(boolean)chain.proceed();
-                if(config.enabled)for(NativeBar bar:bars.values())if(bar.webLayout()&&bar.belongs((View)chain.getThisObject()))return false;
-                return original;
+            installed.add(hook(nativeBindings.method("addressAlignmentUpdate")).intercept(chain->{
+                ViewGroup previous=addressLayout.get();addressLayout.set((ViewGroup)chain.getThisObject());
+                try{return chain.proceed();}finally{addressLayout.set(previous);}
+            }));
+            installed.add(hook(nativeBindings.method("addressPageAlignment")).intercept(chain->{
+                ViewGroup address=addressLayout.get();
+                if(config.enabled&&address!=null)for(NativeBar bar:bars.values())if(bar.webLayout()&&bar.belongs(address))return false;
+                return chain.proceed();
             }));
             installed.add(hook(nativeBindings.method("addressPresentation")).intercept(chain->{
                 ViewGroup address=(ViewGroup)chain.getThisObject();
