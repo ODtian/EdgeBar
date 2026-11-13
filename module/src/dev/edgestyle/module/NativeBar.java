@@ -38,11 +38,11 @@ final class NativeBar implements AutoCloseable {
         android.util.Log.i("EdgeBar","Native layout adapter attached; address parent unchanged");
     }
     boolean ready(){return actions.containsKey("tabs")&&actions.containsKey("menu")&&!closed;}
-    boolean webLayout(){return ready()&&!nativeToolbar.newTabPage();}
+    boolean webLayout(){return ready()&&!nativeToolbar.regularNewTabPage();}
     void syncPageLayout(){
         if(!ready())return;
         try{
-            if(nativeToolbar.newTabPage()){park();for(Search search:searches.values())search.ensure();}
+            if(nativeToolbar.regularNewTabPage()){park();for(Search search:searches.values())search.ensure();}
             else if(parked){parked=false;if(!webApplied)arrange(arranged);hideOriginalActions();}
         }catch(Exception error){android.util.Log.w("EdgeBar","Native page layout boundary",error);}
     }
@@ -90,7 +90,7 @@ final class NativeBar implements AutoCloseable {
             }
             if(!ready())return;
             roles.removeIf(role->!role.equals("address")&&!actions.containsKey(role));
-            if(nativeToolbar.newTabPage()){arranged=new ArrayList<>(roles);park();}
+            if(nativeToolbar.regularNewTabPage()){arranged=new ArrayList<>(roles);park();}
             else if(parked||!roles.equals(arranged)){parked=false;arrange(roles);}
             if(webLayout())hideOriginalActions();
             for(Search search:searches.values())search.ensure();
@@ -165,7 +165,7 @@ final class NativeBar implements AutoCloseable {
         Search(ViewGroup view){this.view=view;top=view.getClass().getName().equals(NativeToolbar.TOP_BAR);}
         void ensure(){
             if(top!="top".equals(config.ntpPosition)){clear();return;}
-            if(!ready()||!nativeToolbar.newTabPage())return;
+            if(!ready()||!nativeToolbar.regularNewTabPage())return;
             if(!view.isAttachedToWindow())return;
             View end=top?view:EdgeAccess.find(view,"search_box_right_container");if(!(end instanceof LinearLayout))return;
             try{

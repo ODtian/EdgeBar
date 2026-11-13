@@ -21,7 +21,7 @@ final class NativeToolbar {
     Object topTabStyle;
     private final Field leftIcons,rightIcons;
     private final int originalAddressGoneStart;
-    private boolean lastNewTabPage=true,pageKnown;
+    private boolean lastRegularNewTabPage=true,pageKnown;
 
     NativeToolbar(ViewGroup toolbar)throws ReflectiveOperationException {
         this.toolbar=toolbar;loader=toolbar.getClass().getClassLoader();
@@ -49,11 +49,14 @@ final class NativeToolbar {
         for(View node=child;node!=null;node=node.getParent() instanceof View?(View)node.getParent():null)if(node==parent)return true;
         return false;
     }
-    boolean newTabPage(){
+    boolean regularNewTabPage(){
         String spec="";
         try{
             Object provider=EdgeEntry.nativeBindings.field("toolbarDataProvider").get(toolbar);
             if(provider!=null){
+                if((boolean)method(provider.getClass(),"isIncognito",0).invoke(provider)){
+                    pageKnown=true;lastRegularNewTabPage=false;return false;
+                }
                 Object tab=EdgeEntry.nativeBindings.field("addressTab").get(provider);
                 Object web=tab==null?null:method(tab.getClass(),"getWebContents",0).invoke(tab);
                 if(web!=null)spec=EdgeAccess.urlSpec(EdgeEntry.nativeBindings.method("webVisibleUrl").invoke(web));
@@ -63,11 +66,11 @@ final class NativeToolbar {
         if(!spec.isEmpty()){
             pageKnown=true;
             android.net.Uri url=android.net.Uri.parse(spec);
-            lastNewTabPage="newtab".equals(url.getHost())&&("edge".equals(url.getScheme())||"chrome".equals(url.getScheme())||"chrome-native".equals(url.getScheme()));
+            lastRegularNewTabPage="newtab".equals(url.getHost())&&("edge".equals(url.getScheme())||"chrome".equals(url.getScheme())||"chrome-native".equals(url.getScheme()));
         }
-        return lastNewTabPage;
+        return lastRegularNewTabPage;
     }
-    boolean pageKnown(){newTabPage();return pageKnown;}
+    boolean pageKnown(){regularNewTabPage();return pageKnown;}
     void addressStatusInset(ViewGroup address,boolean browsing)throws ReflectiveOperationException {
         View url=EdgeAccess.find(address,"url_bar");
         Object params=url.getLayoutParams();

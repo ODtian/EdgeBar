@@ -2,6 +2,8 @@
 
 ## 原生组件定位
 
+当前模块复用手机横屏与平板共用的原生按钮组装流程，同时沿用 `EdgeToolbarPhone` 和 `LocationBarPhone` 的地址输入及页面联动。完整平板工具栏使用 `EdgeToolbarTablet → ToolbarTablet`，其初始化绑定独立的主页、后退、刷新、收藏按钮和 `toolbar_tablet_layout`，测量时按按钮队列分配宽度。完整复用该布局涉及工具栏资源、控件类型和测量链路的整体接入。
+
 `EdgeEntry.onPackageReady` 取得已安装 Edge 的 `ApplicationInfo` 和类加载器，将主 APK 与 split APK 路径交给 `NativeBindings(apks, loader)`。
 
 反射提供已知类型的成员访问；`NativeDex` 补齐已安装 APK 内部类型及调用关系的查询。它读取 DEX 元数据和相关方法的调用指令，`NativeRoles` 按以下原生职责定位。`NativeBindings` 将解析结果转成反射成员，交给现有挂钩流程；DEX 索引随后交由垃圾回收。
@@ -22,7 +24,7 @@
 ## 布局与调用链
 
 1. `EdgeEntry` 在原生顶栏组装期间选择 Edge 已有的紧凑按钮分支，并捕获协调器、原生绑定方法和原始参数，交给 `NativeActions.Binding`。
-2. `NativeBar.update(config) → arrange(roles)` 按设置把原生按钮放入 `toolbar_left_buttons` / `toolbar_buttons`，保留原生 `LayoutParams`、点击监听器和计数模型，并更新原生控件截图列表。原生 `UrlBar` 的 `TextWatcher.afterTextChanged → toolbar.requestLayout` 触发原生测量与布局，现有 `onMeasure` 和 `onLayout` 挂钩同步地址对齐及按钮状态。`NativeToolbar.newTabPage` 从同一工具栏的地址数据提供器取得当前标签，优先读取其 `WebContents` 的原生可见网址；初始化期间读取地址模型已有的网址。提交网址后，等待响应和页面提交共用这条状态链路。
+2. `NativeBar.update(config) → arrange(roles)` 按设置把原生按钮放入 `toolbar_left_buttons` / `toolbar_buttons`，保留原生 `LayoutParams`、点击监听器和计数模型，并更新原生控件截图列表。原生 `UrlBar` 的 `TextWatcher.afterTextChanged → toolbar.requestLayout` 触发原生测量与布局，现有 `onMeasure` 和 `onLayout` 挂钩同步地址对齐及按钮状态。`NativeToolbar.regularNewTabPage` 先读取同一地址数据提供器的 `isIncognito()`，InPrivate 页面直接采用顶栏按钮；普通模式从当前标签的 `WebContents` 原生可见网址识别普通新标签页，初始化期间读取地址模型已有的网址。普通新标签页采用页面内按钮，其余页面采用顶栏。提交网址后，等待响应和页面提交共用这条状态链路。
 3. `LocationBarPhone.onMeasure → 原生布局助手 → 原生地址栏约束更新 → 原生文字测量 → 原生文字呈现 → ConstraintLayout.onMeasure` 构成地址栏测量链路。网页采用原生左侧约束分支，`StatusView` 和原生操作按钮按可见性确定文字边界。左对齐执行原生文字呈现；居中通过同一入口传入居中选择、文字是否容纳及 `MATCH_CONSTRAINT`，由原生约束分配宽度。内边距、状态视图与操作按钮保留原生布局值。文字是否容纳根据文本宽度、实测区域和原生内边距判断，区域宽度变化时请求原生布局。原生文字测量入口执行去优化，让原生呈现调用在运行时采用当前对齐选项。输入态继续执行原生测量。
 4. `LocationBarPhone.onMeasure → NativeToolbar.addressStatusInset(address, browsing) → 原生约束测量` 在网页态读取 `location_bar_status_icon_holding_space` 的布局宽度，将它交给原生 `goneStartMargin`。状态容器可见时采用原生正常间距；隐藏时采用这段原生边缘留白。输入和关闭模块时恢复构造阶段保存的原约束值。地址栏左侧父容器保留原生留白，合并后重复的 Copilot 子按钮按网页状态隐藏。安全图标的显示由 Edge 原生页面状态决定；HTTP、HTTPS 和图标隐藏时均使用上述同一套约束与原生内边距。
 5. 新标签页通过原生按钮布局和协调器创建按钮，复用原生绑定参数与顶栏样式对象。原生页面主题刷新后，读取页面按钮或文字已有的 `ColorStateList`，交给原生按钮使用。

@@ -22,7 +22,7 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
 python tools/build.py --sdk-root 'C:\Android\Sdk'
 ```
 
-构建产物为 `dist/EdgeBar-v0.5.13.apk`，编译中间文件位于 `build/`。
+构建产物为 `dist/EdgeBar-v0.5.14.apk`，编译中间文件位于 `build/`。
 
 | 参数 | 含义 |
 | --- | --- |
