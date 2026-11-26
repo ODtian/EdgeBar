@@ -53,8 +53,11 @@ final class NativeActions implements AutoCloseable {
         return new NativeActions(binding.role,view,binding.source,capture,null);
     }
     void park(){
-        if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);
-        if(originalParent!=null){originalParent.addView(view,Math.min(originalIndex,originalParent.getChildCount()),originalParams);view.setVisibility(originalVisibility);}
+        if(view.getParent()!=originalParent){
+            if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);
+            if(originalParent!=null)originalParent.addView(view,Math.min(originalIndex,originalParent.getChildCount()),originalParams);
+        }
+        view.setVisibility(originalVisibility);
     }
     @Override public void close(){
         if(closed)return;closed=true;

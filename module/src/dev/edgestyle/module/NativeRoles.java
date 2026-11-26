@@ -17,7 +17,6 @@ final class NativeRoles {
     final Map<String,MethodRef> methods=new LinkedHashMap<>();
     final Map<String,FieldRef> fields=new LinkedHashMap<>();
     final List<MethodRef> deoptimize=new ArrayList<>();
-    final List<FieldRef> relativeGoneMargins=new ArrayList<>();
     final Type tabs,menu,icon,orientationIcon;
 
     NativeRoles(NativeDex dex){
@@ -59,6 +58,8 @@ final class NativeRoles {
         methods.put("menuPalette",menu.method("menu palette",m->m.shape("V",0)&&m.calls().stream().anyMatch(c->c.owner.equals("Lorg/chromium/ui/modelutil/PropertyModel;")&&c.result.equals("V")&&c.params.size()==2&&c.params.get(1).equals("Z"))));
 
         Type toolbar=dex.type(TOOLBAR);
+        Type phone=dex.type("Lorg/chromium/chrome/browser/toolbar/top/ToolbarPhone;");
+        fields.put("toolbarStateAnimator",phone.field("Landroid/animation/ValueAnimator;"));
         String gurl="Lorg/chromium/url/GURL;";
         fields.put("toolbarDataProvider",NativeDex.one(dex.type(TOOLBAR_LAYOUT).fields,field->{
             Type provider=dex.type(field.type);
@@ -85,22 +86,16 @@ final class NativeRoles {
         MethodRef presentation=location.method("address text presentation",m->m.shape("V",4)&&m.params.get(0).equals("Z")&&m.params.get(1).equals("Z")&&m.params.get(2).equals("I")&&m.calls("Landroid/widget/TextView;","setGravity")&&m.calls("Landroid/widget/TextView;","setHorizontallyScrolling"));
         methods.put("addressPresentation",presentation);
         MethodRef measure=location.method("native address measurement",m->m.signature("(II)V")&&m.calls(presentation));
-        Type addressParams=dex.type(presentation.params.get(3));
-        MethodRef resolve=addressParams.method("relative address constraints",m->m.name.equals("resolveLayoutDirection"));
-        for(Use use:resolve.uses())if(use.op==0x52&&use.value instanceof FieldRef){
-            FieldRef field=(FieldRef)use.value;
-            if(field.owner.equals(addressParams.name)&&!java.lang.reflect.Modifier.isFinal(field.flags)&&!relativeGoneMargins.contains(field)&&
-                resolve.uses().stream().filter(u->u.op==0x52&&u.value==field).count()==2)relativeGoneMargins.add(field);
-        }
         for(String slot:new String[]{"TopBar","SearchBox"}){
             Type page=dex.type("Lorg/chromium/chrome/browser/edge_ntp/v2/view/NewTabPageV2"+slot+";");
             methods.put(slot+"Palette",page.method(slot+" palette",m->m.shape("V",0)&&(slot.equals("TopBar")?m.calls("Landroid/widget/ImageView;","setImageTintList"):m.resource("ic_fluent_camera_24_regular")&&m.calls("Landroid/widget/ImageView;","setImageDrawable"))));
         }
         Type footer=dex.findType("bottom toolbar coordinator",t->t.hasField(BOTTOM)&&t.hasField("Lorg/chromium/chrome/browser/edge_bottombar/EdgeBottomNavBarResourceFrameLayout;"));
-        MethodRef updateFooter=footer.method("native bottom controls visibility",m->m.shape("V",0)&&m.reads(BOTTOM)&&m.calls(VIEW,"setVisibility")&&m.writes(footer.name,"I"));methods.put("updateFooter",updateFooter);
+        String deviceFormFactor="Lorg/chromium/ui/base/DeviceFormFactor;";
+        MethodRef updateFooter=footer.method("native bottom controls visibility",m->m.shape("V",0)&&m.reads(BOTTOM)&&m.calls(VIEW,"setVisibility")&&m.calls().stream().anyMatch(call->call.owner.equals(deviceFormFactor)&&call.signature("("+CONTEXT+")Z")));methods.put("updateFooter",updateFooter);
         fields.put("footerView",footer.field(BOTTOM));
-        methods.put("toolbarFormFactor",dex.definition(NativeDex.one(configuration.calls(),m->m.owner.equals("Lorg/chromium/ui/base/DeviceFormFactor;")&&m.signature("("+CONTEXT+")Z"),"native toolbar form factor")));
-        for(String[] resource:new String[][]{{"tabsLayout","edge_tab_stack_button"},{"menuLayout","edge_toolbar_overflow_button_mvp"},{"iconPadding","edge_toolbar_icon_padding"}}){
+        methods.put("toolbarFormFactor",dex.definition(NativeDex.one(configuration.calls(),m->m.owner.equals(deviceFormFactor)&&m.signature("("+CONTEXT+")Z"),"native toolbar form factor")));
+        for(String[] resource:new String[][]{{"tabsLayout","edge_tab_stack_button"},{"menuLayout","edge_toolbar_overflow_button_mvp"},{"iconPadding","edge_toolbar_icon_padding"},{"addressStartInset","location_bar_icon_starting_padding"}}){
             List<FieldRef> matches=new ArrayList<>();
             for(Type type:dex.types.values())for(FieldRef field:type.fields)if(field.name.equals(resource[1])&&field.type.equals("I")&&java.lang.reflect.Modifier.isStatic(field.flags))matches.add(field);
             fields.put(resource[0],NativeDex.one(matches,field->true,resource[1]));
@@ -108,6 +103,24 @@ final class NativeRoles {
 
         Type manager=dex.findType("toolbar lifecycle owner",t->t.hasField(assemblyOwner.name)&&t.hasField(TOOLBAR_LAYOUT)&&t.hasField("Lorg/chromium/chrome/browser/toolbar/LocationBarModel;"));
         for(MethodRef method:manager.methods)if(method.name.equals("<init>")||method.calls().stream().anyMatch(c->c.owner.equals(assemblyOwner.name)))deoptimize.add(method);
+        String hub="Lorg/chromium/chrome/browser/hub/HubContainerView;",animatorSet="Landroid/animation/AnimatorSet;";
+        List<String> fadeParams=Arrays.asList("I",hub,"F","F","Landroid/view/animation/Interpolator;","Ljava/util/function/DoubleConsumer;");
+        MethodRef hubFade=dex.findType("native hub fade factory",t->t.methods.stream().anyMatch(m->m.params.equals(fadeParams)))
+            .method("native hub fade",m->m.params.equals(fadeParams));
+        methods.put("hubFade",hubFade);
+        Type hubEnter=dex.findType("native tab pane animation",t->t.methods.stream().anyMatch(m->m.params.equals(Collections.singletonList(hub))&&m.calls().stream().anyMatch(call->call.owner.equals("Lorg/chromium/base/SysUtils;")&&call.shape("Z",0))));
+        MethodRef enterAnimation=hubEnter.method("native tab pane show animation",m->m.params.equals(Collections.singletonList(hub))&&m.calls().stream().anyMatch(call->call.owner.equals("Lorg/chromium/base/SysUtils;")&&call.shape("Z",0)));
+        methods.put("hubEnterAnimation",enterAnimation);methods.put("baseHubEnterAnimation",dex.type(hubEnter.parent).method("native base show animation",m->m.name.equals(enterAnimation.name)&&m.signature.equals(enterAnimation.signature)));
+        MethodRef hubConstructor=dex.type(hubFade.result).method("native hub animation",m->m.name.equals("<init>")&&m.params.size()==3&&m.params.get(0).equals("I")&&m.params.get(1).equals(animatorSet));
+        methods.put("hubAnimationConstructor",hubConstructor);
+        for(Type type:dex.types.values())if(type.hasField(hub)||type.methods.stream().anyMatch(m->m.params.contains(hub)))
+            for(MethodRef method:type.methods)if(method.calls(hubConstructor)||method.calls(hubFade))deoptimize.add(method);
+        String foreground="Lorg/chromium/chrome/browser/compositor/layouts/phone/NewForegroundTabAnimationHostView;";
+        Type start=dex.findType("native foreground tab animation",t->t.hasField("Landroid/graphics/Rect;")&&t.hasField("[I")&&t.methods.stream().anyMatch(m->m.name.equals("run")&&m.writes(foreground,animatorSet)));
+        methods.put("startNewTabAnimation",start.method("native foreground tab animation start",m->m.name.equals("run")));
+        FieldRef animationOwner=NativeDex.one(start.fields,f->dex.type(f.type)!=null&&dex.type(f.type).hasField(foreground),"native foreground animation owner");
+        fields.put("newTabAnimationOwner",animationOwner);fields.put("newTabAnimationHost",dex.type(animationOwner.type).field(foreground));
+        fields.put("newTabExpandAnimator",dex.type(foreground).field(animatorSet));fields.put("newTabFadeAnimator",dex.type(foreground).field("Landroid/animation/ObjectAnimator;"));
         deoptimize.add(assemble);deoptimize.add(methods.get("bindAssembly"));deoptimize.add(measure);deoptimize.add(methods.get("addressAlignmentUpdate"));deoptimize.add(presentation);deoptimize.add(updateFooter);deoptimize.add(configuration);
     }
 }

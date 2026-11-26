@@ -17,7 +17,7 @@ public final class EdgeEntry extends XposedModule {
     static EdgeEntry instance;
     static NativeBindings nativeBindings;
     static volatile BarConfig config=new BarConfig();
-    private boolean main,activityHooksInstalled,bindingsInstalled,bindingsInstalling,deferredLogged;
+    private boolean main,activityHooksInstalled,bindingsInstalled,bindingsInstalling,extensionSettingsInstalled,deferredLogged;
     private SharedPreferences preferences;
     private ApplicationInfo edgeInfo;
     private SharedPreferences.OnSharedPreferenceChangeListener listener;
@@ -53,7 +53,7 @@ public final class EdgeEntry extends XposedModule {
                     edgeInfo=activity.getApplicationInfo();
                     installBindings(activity.getClass().getClassLoader());installBindings(activity.getClassLoader());
                 }
-                Object result=chain.proceed();EdgeAccess.created(activity);return result;
+                return chain.proceed();
             }));
             installed.add(hook(Activity.class.getDeclaredMethod("onResume")).intercept(chain->{
                 Activity activity=(Activity)chain.getThisObject();
@@ -71,7 +71,7 @@ public final class EdgeEntry extends XposedModule {
                 return chain.proceed();
             }));
             installed.add(hook(Instrumentation.class.getDeclaredMethod("callActivityOnNewIntent",Activity.class,Intent.class)).intercept(chain->{
-                Object result=chain.proceed();Activity activity=(Activity)chain.getArg(0);EdgeRuntime.resumed(activity);EdgeRuntime.route(activity,(Intent)chain.getArg(1));return result;
+                Object result=chain.proceed();Activity activity=(Activity)chain.getArg(0);EdgeRuntime.resumed(activity);EdgeRuntime.route((Intent)chain.getArg(1));return result;
             }));
             activityHooksInstalled=true;
         }catch(Throwable error){rollback(installed);log(Log.ERROR,"EdgeBar","Activity hook transaction",error);}
@@ -80,12 +80,14 @@ public final class EdgeEntry extends XposedModule {
         if(bindingsInstalled||bindingsInstalling||loader==null||edgeInfo==null)return;bindingsInstalling=true;
         List<HookHandle> installed=new ArrayList<>();
         try{
+            List<String> apks=new ArrayList<>();apks.add(edgeInfo.sourceDir);if(edgeInfo.splitSourceDirs!=null)Collections.addAll(apks,edgeInfo.splitSourceDirs);
+            NativeDex dex=extensionSettingsInstalled&&nativeBindings!=null?null:new NativeDex(apks.toArray(new String[0]));
+            if(!extensionSettingsInstalled)installExtensionSettings(dex,loader);
             Class<?> toolbar=Class.forName(NativeToolbar.PHONE,false,loader);
             Class<?> phone=Class.forName("org.chromium.chrome.browser.toolbar.top.ToolbarPhone",false,loader);
             Class<?> search=Class.forName(NativeToolbar.SEARCH,false,loader);
             Class<?> topBar=Class.forName(NativeToolbar.TOP_BAR,false,loader);
-            List<String> apks=new ArrayList<>();apks.add(edgeInfo.sourceDir);if(edgeInfo.splitSourceDirs!=null)Collections.addAll(apks,edgeInfo.splitSourceDirs);
-            if(nativeBindings==null)nativeBindings=new NativeBindings(apks.toArray(new String[0]),loader);
+            if(nativeBindings==null)nativeBindings=new NativeBindings(dex,loader);
             Class<?> ntpPage=Class.forName("org.chromium.chrome.browser.edge_ntp.v2.NewTabPageV2Layout",false,loader);
             for(Executable executable:nativeBindings.deoptimize)deoptimize(executable);
             Method assemble=nativeBindings.method("assemble");
@@ -122,9 +124,9 @@ public final class EdgeEntry extends XposedModule {
             Method measureAddress=location.getDeclaredMethod("onMeasure",int.class,int.class);
             installed.add(hook(measureAddress).intercept(chain->{
                 ViewGroup address=(ViewGroup)chain.getThisObject();
-                if(config.enabled)for(NativeBar bar:bars.values())if(bar.belongs(address)){
+                if(config.enabled)for(NativeBar bar:bars.values())if(bar.nativeToolbar.address==address){
                     bar.hideOriginalActions();
-                    bar.nativeToolbar.addressStatusInset(address,bar.webLayout()&&!EdgeAccess.find(address,"url_bar").hasFocus());
+                    bar.nativeToolbar.updateAddressStart(bar.webLayout()&&!EdgeAccess.find(address,"url_bar").hasFocus());
                     break;
                 }
                 ViewGroup previous=addressLayout.get();addressLayout.set(address);
@@ -155,9 +157,13 @@ public final class EdgeEntry extends XposedModule {
                 Object r=chain.proceed();NativeBar bar=bars.get(chain.getThisObject());if(config.enabled&&bar!=null)bar.capturesChanged();return r;
             }));
             // Follow native page state to place the merged buttons.
-            for(Method state:new Method[]{NativeToolbar.method(phone,"onLayout",5),phone.getDeclaredMethod("setTabSwitcherMode",boolean.class),toolbar.getDeclaredMethod("setUrlFocusChangeFraction",float.class,boolean.class)})installed.add(hook(state).intercept(chain->{
+            Method tabSwitcher=phone.getDeclaredMethod("setTabSwitcherMode",boolean.class);
+            for(Method state:new Method[]{NativeToolbar.method(phone,"onLayout",5),tabSwitcher,toolbar.getDeclaredMethod("setUrlFocusChangeFraction",float.class,boolean.class)})installed.add(hook(state).intercept(chain->{
                 NativeBar bar=bars.get(chain.getThisObject());if(bar!=null)bar.beforeNativeState();
-                Object r=chain.proceed();if(config.enabled&&bar!=null)bar.nativeStateChanged();return r;
+                Object r=chain.proceed();if(config.enabled&&bar!=null){
+                    if(state==tabSwitcher){android.animation.Animator animation=(android.animation.Animator)nativeBindings.field("toolbarStateAnimator").get(chain.getThisObject());if(animation!=null)animation.end();}
+                    bar.nativeStateChanged();
+                }return r;
             }));
             installed.add(hook(toolbar.getDeclaredMethod("setOrientation",int.class)).intercept(chain->{
                 Object r=chain.proceed();NativeBar bar=bars.get(chain.getThisObject());if(config.enabled&&bar!=null)bar.hideOriginalActions();return r;
@@ -181,6 +187,28 @@ public final class EdgeEntry extends XposedModule {
                 NativeBar bar=bars.get(chain.getThisObject());if(config.enabled&&bar!=null)bar.nativeStateChanged();
                 return chain.proceed();
             }));
+            installed.add(hook(nativeBindings.method("hubFade")).intercept(chain->{
+                if(config.enabled)return chain.proceed(new Object[]{chain.getArg(0),chain.getArg(1),chain.getArg(3),chain.getArg(3),chain.getArg(4),chain.getArg(5)});
+                return chain.proceed();
+            }));
+            installed.add(hook(nativeBindings.method("hubEnterAnimation")).intercept(chain->config.enabled?getInvoker(nativeBindings.method("baseHubEnterAnimation")).invokeSpecial(chain.getThisObject(),chain.getArg(0)):chain.proceed()));
+            installed.add(hook(nativeBindings.constructor("hubAnimationConstructor")).intercept(chain->{
+                if(config.enabled)((android.animation.AnimatorSet)chain.getArg(1)).setDuration(0);
+                return chain.proceed();
+            }));
+            installed.add(hook(nativeBindings.method("startNewTabAnimation")).intercept(chain->{
+                Object result=chain.proceed();
+                if(config.enabled){
+                    Object owner=nativeBindings.field("newTabAnimationOwner").get(chain.getThisObject());
+                    Object host=nativeBindings.field("newTabAnimationHost").get(owner);
+                    if(host!=null){
+                        android.animation.Animator expand=(android.animation.Animator)nativeBindings.field("newTabExpandAnimator").get(host);
+                        android.animation.Animator fade=(android.animation.Animator)nativeBindings.field("newTabFadeAnimator").get(host);
+                        expand.end();fade.end();
+                    }
+                }
+                return result;
+            }));
             for(Class<?> pageSlot:new Class<?>[]{search,topBar})installed.add(hook(pageSlot.getDeclaredMethod("onAttachedToWindow")).intercept(chain->{
                 Object r=chain.proceed();if(config.enabled)for(NativeBar bar:new ArrayList<>(bars.values()))if(((View)chain.getThisObject()).getRootView()==bar.toolbar.getRootView())bar.searchAttached((ViewGroup)chain.getThisObject());syncFooter();return r;
             }));
@@ -192,12 +220,24 @@ public final class EdgeEntry extends XposedModule {
                 NativeAssembly.enterFooter();
                 try{return chain.proceed();}finally{NativeAssembly.leaveFooter();}
             }));
-            bindingsInstalled=true;startStores();
+            bindingsInstalled=true;
             log(Log.INFO,"EdgeBar","Native lifecycle/action/presentation hooks installed");
         }catch(ClassNotFoundException|NoClassDefFoundError error){
             rollback(installed);if(!deferredLogged){deferredLogged=true;log(Log.INFO,"EdgeBar","Awaiting Edge's chrome class loader: "+error.getMessage());}
         }catch(Throwable error){rollback(installed);log(Log.ERROR,"EdgeBar","Native symbols unavailable; keeping Edge native UI",error);}
         finally{bindingsInstalling=false;}
+    }
+    private void installExtensionSettings(NativeDex dex,ClassLoader loader){
+        List<HookHandle> installed=new ArrayList<>();
+        try{
+            new ExtensionSettings(dex,loader).hook(this,installed);
+            extensionSettingsInstalled=true;
+            log(Log.INFO,"EdgeBar","Native extension settings hooks installed");
+        }catch(ClassNotFoundException|NoClassDefFoundError deferred){
+            rollback(installed);
+        }catch(ReflectiveOperationException|RuntimeException error){
+            rollback(installed);log(Log.ERROR,"EdgeBar","Native extension settings unavailable",error);
+        }
     }
     private void rollback(List<HookHandle> handles){for(int i=handles.size()-1;i>=0;i--)try{handles.get(i).unhook();}catch(Throwable e){log(Log.ERROR,"EdgeBar","Hook rollback",e);}}
     private void attach(ViewGroup toolbar){
@@ -225,10 +265,5 @@ public final class EdgeEntry extends XposedModule {
         try{
         for(Object owner:footerOwners.keySet())try{nativeBindings.method("updateFooter").invoke(owner);}catch(Exception error){Log.w("EdgeBar","Native footer restore",error);}
         }finally{restoringFooter=false;}
-    }
-    private static boolean storesStarted;
-    private static void startStores(){
-        if(storesStarted)return;storesStarted=true;
-        EdgeRuntime.MAIN.postDelayed(new Runnable(){public void run(){Activity owner=EdgeRuntime.activity();if(owner!=null)EdgeRuntime.stores(owner);EdgeRuntime.MAIN.postDelayed(this,900);}},900);
     }
 }

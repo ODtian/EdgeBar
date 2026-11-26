@@ -100,15 +100,38 @@ final class NativeBar implements AutoCloseable {
         finally{updating=false;}
     }
     private void arrange(List<String> roles)throws ReflectiveOperationException {
-        for(NativeActions a:actions.values())if(!a.role.startsWith("ntp_")){unregister(a);if(a.view.getParent() instanceof ViewGroup)((ViewGroup)a.view.getParent()).removeView(a.view);}
-        List<Object> left=nativeToolbar.icons(true),right=nativeToolbar.icons(false);boolean start=true;
+        for(NativeActions action:actions.values()){
+            unregister(action);
+            if(!roles.contains(action.role)){
+                action.park();
+                action.view.setVisibility(View.GONE);
+            }
+        }
+        List<NativeActions> left=new ArrayList<>(),right=new ArrayList<>();boolean start=true;
         for(String role:roles){
             if(role.equals("address")){start=false;continue;}
-            NativeActions action=actions.get(role);ViewGroup parent=start?nativeToolbar.left:nativeToolbar.right;
-            parent.addView(action.view);if(action.capture!=null)(start?left:right).add(action.capture);
+            (start?left:right).add(actions.get(role));
         }
+        arrangeSlot(nativeToolbar.left,left,nativeToolbar.icons(true));
+        arrangeSlot(nativeToolbar.right,right,nativeToolbar.icons(false));
         arranged=new ArrayList<>(roles);webApplied=true;toolbar.requestLayout();toolbar.invalidate();
         android.util.Log.i("EdgeBar","Native slot layout: "+roles);
+    }
+    private static void arrangeSlot(ViewGroup slot,List<NativeActions> actions,List<Object> captures){
+        int previous=-1;
+        boolean reorder=false;
+        for(NativeActions action:actions){
+            View view=action.view;
+            if(view.getParent()!=slot){
+                if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);
+                slot.addView(view);
+            }
+            int index=slot.indexOfChild(view);
+            reorder|=index<previous;
+            previous=index;
+            if(action.capture!=null)captures.add(action.capture);
+        }
+        if(reorder)for(NativeActions action:actions)slot.bringChildToFront(action.view);
     }
     private void unregister(NativeActions action){try{
         Object found=nativeToolbar.capture(action.view,action.coordinator);if(found!=null)action.capture=found;
@@ -126,7 +149,11 @@ final class NativeBar implements AutoCloseable {
     }
     void nativeStateChanged(){
         if(!ready())return;
-        syncPageLayout();if(!parked){hideOriginalActions();for(String role:arranged)if(!role.equals("address"))actions.get(role).view.setVisibility(View.VISIBLE);}
+        syncPageLayout();
+        if(!parked){
+            hideOriginalActions();
+            for(NativeActions action:actions.values())action.view.setVisibility(arranged.contains(action.role)?View.VISIBLE:View.GONE);
+        }
     }
     void beforeNativeState(){syncPageLayout();}
     void hideOriginalActions(){
@@ -155,7 +182,7 @@ final class NativeBar implements AutoCloseable {
         for(Search s:searches.values())s.clear();searches.clear();
         for(NativeActions a:actions.values()){unregister(a);a.close();}actions.clear();bindings.clear();
         for(Map.Entry<View,Integer> e:originalVisibility.entrySet())e.getKey().setVisibility(e.getValue());originalVisibility.clear();
-        try{nativeToolbar.addressStatusInset((ViewGroup)EdgeAccess.find(toolbar,"location_bar"),false);}catch(ReflectiveOperationException error){android.util.Log.w("EdgeBar","Native address edge restore",error);}
+        nativeToolbar.updateAddressStart(false);
         toolbar.requestLayout();toolbar.invalidate();
     }
     private final class Search {

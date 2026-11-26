@@ -5,22 +5,23 @@ import android.view.ViewGroup;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.lang.reflect.Modifier;
 
-/** Accesses Edge 156's native toolbar slots and location coordinator. */
+/** Accesses Edge's native toolbar slots and location coordinator. */
 final class NativeToolbar {
     static final String PHONE="org.chromium.chrome.browser.toolbar.top.EdgeToolbarPhone";
     static final String SEARCH="org.chromium.chrome.browser.edge_ntp.v2.view.NewTabPageV2SearchBox";
     static final String TOP_BAR="org.chromium.chrome.browser.edge_ntp.v2.view.NewTabPageV2TopBar";
     final ViewGroup toolbar;
     final ViewGroup left,right;
+    final View address;
     final ClassLoader loader;
     final Class<?> icon;
     Object topTabStyle;
     private final Field leftIcons,rightIcons;
-    private final int originalAddressGoneStart;
+    private final int addressStartInset;
+    private int nativeStartPadding, appliedStartPadding=-1;
     private boolean lastRegularNewTabPage=true,pageKnown;
 
     NativeToolbar(ViewGroup toolbar)throws ReflectiveOperationException {
@@ -31,7 +32,8 @@ final class NativeToolbar {
             throw new NoSuchFieldException("Native button slots unavailable");
         left=(ViewGroup)l;right=(ViewGroup)r;
         leftIcons=EdgeEntry.nativeBindings.field("leftIcons");rightIcons=EdgeEntry.nativeBindings.field("rightIcons");
-        originalAddressGoneStart=EdgeEntry.nativeBindings.field("addressGoneStart").getInt(EdgeAccess.find(toolbar,"url_bar").getLayoutParams());
+        address=EdgeAccess.find(toolbar,"location_bar");
+        addressStartInset=EdgeEntry.nativeBindings.field("addressStartInset").getInt(null);
         if(leftIcons.getType()!=List.class||rightIcons.getType()!=List.class)
             throw new NoSuchFieldException("Unsupported native capture lists");
     }
@@ -71,15 +73,19 @@ final class NativeToolbar {
         return lastRegularNewTabPage;
     }
     boolean pageKnown(){regularNewTabPage();return pageKnown;}
-    void addressStatusInset(ViewGroup address,boolean browsing)throws ReflectiveOperationException {
-        View url=EdgeAccess.find(address,"url_bar");
-        Object params=url.getLayoutParams();
-        Field goneStart=EdgeEntry.nativeBindings.field("addressGoneStart");
-        int inset=browsing?EdgeAccess.find(address,"location_bar_status_icon_holding_space").getLayoutParams().width:originalAddressGoneStart;
-        if(goneStart.getInt(params)==inset)return;
-        goneStart.setInt(params,inset);
-        url.setLayoutParams((ViewGroup.LayoutParams)params);
-        android.util.Log.i("EdgeBar","Native status edge inset="+inset+" statusVisibility="+EdgeAccess.find(address,"location_bar_status").getVisibility());
+    void updateAddressStart(boolean browsing){
+        if(address==null)return;
+        int current=address.getPaddingStart();
+        if(current!=appliedStartPadding){
+            nativeStartPadding=current;
+            appliedStartPadding=-1;
+        }
+        // Use Edge's leading inset for the compact browsing row.
+        int desired=browsing?Math.max(nativeStartPadding,address.getResources().getDimensionPixelSize(addressStartInset)):nativeStartPadding;
+        if(desired!=current){
+            appliedStartPadding=browsing?desired:-1;
+            address.setPaddingRelative(desired,address.getPaddingTop(),address.getPaddingEnd(),address.getPaddingBottom());
+        }
     }
     static boolean addressTextFits(ViewGroup address){
         android.widget.TextView url=(android.widget.TextView)EdgeAccess.find(address,"url_bar");
@@ -103,16 +109,6 @@ final class NativeToolbar {
             if(found!=null){found.setAccessible(true);return found;}
         }
         throw new NoSuchFieldException(type.getName()+" field type "+value.getName());
-    }
-    static Method signature(Class<?> type,Class<?> result,Class<?>... parameters)throws NoSuchMethodException {
-        for(Class<?> current=type;current!=null;current=current.getSuperclass()){
-            Method found=null;
-            for(Method method:current.getDeclaredMethods())if(method.getReturnType()==result&&Arrays.equals(method.getParameterTypes(),parameters)){
-                if(found!=null)throw new NoSuchMethodException("Multiple methods for "+result.getName());found=method;
-            }
-            if(found!=null){found.setAccessible(true);return found;}
-        }
-        throw new NoSuchMethodException(type.getName()+" return "+result.getName());
     }
     static Method method(Class<?> type,String name,int count)throws NoSuchMethodException {
         for(Class<?> c=type;c!=null;c=c.getSuperclass()){
