@@ -4,7 +4,7 @@
 
 当前模块复用手机横屏与平板共用的原生按钮组装流程，同时沿用 `EdgeToolbarPhone` 和 `LocationBarPhone` 的地址输入及页面联动。完整平板工具栏使用 `EdgeToolbarTablet → ToolbarTablet`，其初始化绑定独立的主页、后退、刷新、收藏按钮和 `toolbar_tablet_layout`，测量时按按钮队列分配宽度。完整复用该布局涉及工具栏资源、控件类型和测量链路的整体接入。
 
-`EdgeEntry.onPackageReady` 取得已安装 Edge 的 `ApplicationInfo` 和类加载器，将主 APK 与 split APK 路径交给 `NativeBindings(apks, loader)`。
+`EdgeEntry.onPackageReady` 取得已安装 Edge 的 `ApplicationInfo` 和类加载器。工具栏和新标签页的原生类可由类加载器解析后，模块才通过 `NativeDex` 读取主 APK 与 split APK。Chrome 分包尚未就绪时，模块在 Activity 启动期间用对应的类加载器重试。
 
 反射提供已知类型的成员访问；`NativeDex` 补齐已安装 APK 内部类型及调用关系的查询。它读取 DEX 元数据和相关方法的调用指令，`NativeRoles` 按以下原生职责定位。`NativeBindings` 将解析结果转成反射成员，交给现有挂钩流程；DEX 索引随后交由垃圾回收。
 

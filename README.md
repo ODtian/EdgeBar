@@ -25,14 +25,14 @@
 
 | 项目 | 已验证配置 |
 | --- | --- |
-| EdgeBar | 0.5.21 |
+| EdgeBar | 0.5.22 |
 | Edge | 158.0.4370.33，arm64-v8a |
 | 框架接口 | libxposed API 102 |
 | 实机 | PJF110，Android 16 |
 | 模块最低系统版本 | Android 10 / API 29 |
 | 模块包名 | `dev.edgestyle.module` |
 
-0.5.21 增大单行地址栏内部左侧留白，使用 Edge 原生起始内边距资源及原生图标槽宽度。
+0.5.22 在 Chrome 分包的原生类就绪后扫描 APK，修复 Edge 158 在 Android 16 上的冷启动闪退。
 
 ## 实机截图
 
@@ -49,6 +49,6 @@ docs/                   构建说明、调用链和实机截图
 CHANGELOG.md            版本记录
 ```
 
-开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.21.apk`。参数和签名配置见[构建方法](docs/build.md)。
+开发环境使用 JDK 17、Python 3、Android SDK Platform 36 与 Build Tools 36.0.0。运行 `python tools/build.py --sdk-root <Android-SDK>`，生成 `dist/EdgeBar-v0.5.22.apk`。参数和签名配置见[构建方法](docs/build.md)。
 
 第三方组件的来源和许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

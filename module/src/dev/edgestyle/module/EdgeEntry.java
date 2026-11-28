@@ -80,15 +80,16 @@ public final class EdgeEntry extends XposedModule {
         if(bindingsInstalled||bindingsInstalling||loader==null||edgeInfo==null)return;bindingsInstalling=true;
         List<HookHandle> installed=new ArrayList<>();
         try{
-            List<String> apks=new ArrayList<>();apks.add(edgeInfo.sourceDir);if(edgeInfo.splitSourceDirs!=null)Collections.addAll(apks,edgeInfo.splitSourceDirs);
-            NativeDex dex=extensionSettingsInstalled&&nativeBindings!=null?null:new NativeDex(apks.toArray(new String[0]));
-            if(!extensionSettingsInstalled)installExtensionSettings(dex,loader);
+            // Activity startup retries with the Chrome split loader once these classes are available.
             Class<?> toolbar=Class.forName(NativeToolbar.PHONE,false,loader);
             Class<?> phone=Class.forName("org.chromium.chrome.browser.toolbar.top.ToolbarPhone",false,loader);
             Class<?> search=Class.forName(NativeToolbar.SEARCH,false,loader);
             Class<?> topBar=Class.forName(NativeToolbar.TOP_BAR,false,loader);
-            if(nativeBindings==null)nativeBindings=new NativeBindings(dex,loader);
             Class<?> ntpPage=Class.forName("org.chromium.chrome.browser.edge_ntp.v2.NewTabPageV2Layout",false,loader);
+            List<String> apks=new ArrayList<>();apks.add(edgeInfo.sourceDir);if(edgeInfo.splitSourceDirs!=null)Collections.addAll(apks,edgeInfo.splitSourceDirs);
+            NativeDex dex=extensionSettingsInstalled&&nativeBindings!=null?null:new NativeDex(apks.toArray(new String[0]));
+            if(!extensionSettingsInstalled)installExtensionSettings(dex,loader);
+            if(nativeBindings==null)nativeBindings=new NativeBindings(dex,loader);
             for(Executable executable:nativeBindings.deoptimize)deoptimize(executable);
             Method assemble=nativeBindings.method("assemble");
             installed.add(hook(assemble).intercept(chain->{
